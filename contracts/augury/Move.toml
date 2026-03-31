@@ -2,5 +2,8 @@
 name = "augury"
 edition = "2024"
 
+[dependencies]
+world = { git = "https://github.com/evefrontier/world-contracts.git", subdir = "contracts/world", rev = "v0.0.18" }
+
 [addresses]
 augury = "0x0"

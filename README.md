@@ -73,22 +73,37 @@ Each market stores `event_type`, `target_system_id`, and `threshold`. The off-ch
 
 ## Technical Architecture
 
-### Contract (430 lines Move, 29 tests)
+### 3 Move Modules (41 tests)
 
-| Object | Type | Description |
-|--------|------|-------------|
-| `Market` | Shared | Prediction market with YES/NO pools, deadline, threshold, event type |
-| `Position` | Owned | Player's stake in a market (side, amount, claimed status) |
-| `MarketRegistry` | Shared | Table-indexed registry of all markets |
-| `Treasury` | Shared | Protocol fee collection |
-| `AdminCap` | Owned | Authorizes the off-chain resolver to submit outcomes |
+**`augury.move`** -- Core prediction market (create, bet, resolve, claim)
 
-| Function | Access | Description |
+**`resolver_registry.move`** -- Multi-oracle consensus (v2 decentralization). Multiple trusted resolvers independently submit observed event counts. When M-of-N agree on a value, the market auto-resolves. Eliminates single-point-of-failure in resolution.
+
+**`gate_oracle.move`** -- EVE Smart Gate extension. Gate owners link a gate to an Augury market. When market odds show high threat (e.g. >80% chance of kills), the gate denies passage. Uses EVE's typed-witness extension pattern (`AuguryGateAuth`) and imports `world::gate` directly.
+
+### Core Objects
+
+| Object | Module | Description |
+|--------|--------|-------------|
+| `Market` | augury | Prediction market with YES/NO pools, deadline, threshold, event type |
+| `Position` | augury | Player's stake (side, amount, claimed status) |
+| `MarketRegistry` | augury | Table-indexed registry of all markets |
+| `Treasury` | augury | Protocol fee collection |
+| `AdminCap` | augury | Authorizes resolvers and admin operations |
+| `ResolverRegistry` | resolver_registry | Registered oracles + quorum config + pending votes |
+| `GateOracleConfig` | gate_oracle | Links a gate to a market with odds threshold |
+
+### Key Functions
+
+| Function | Module | Description |
 |----------|--------|-------------|
-| `create_market` | Anyone | Create a market for a specific EVE event type |
-| `place_bet` | Anyone (before deadline) | Stake SUI on YES or NO |
-| `resolve` | AdminCap holder (after deadline) | Submit observed event count; outcome auto-determined |
-| `claim` | Position owner (winning side) | Withdraw proportional share of the pool |
+| `create_market` | augury | Create a market for a specific EVE event type |
+| `place_bet` | augury | Stake SUI on YES or NO |
+| `resolve` | augury | AdminCap holder submits observed count (v1 path) |
+| `claim` | augury | Winner withdraws proportional payout |
+| `register_resolver` | resolver_registry | AdminCap holder adds a trusted oracle |
+| `submit_observation` | resolver_registry | Resolver submits count; auto-resolves on quorum |
+| `issue_jump_permit` | gate_oracle | Check market odds, grant/deny gate passage |
 
 ### Settlement Flow
 
@@ -188,7 +203,7 @@ npx tsx watch.ts        # Continuous (every 30s)
 
 ## Tests
 
-29 unit tests covering access control, payout math, edge cases, EVE event types, input validation, and Table indexing.
+41 unit tests covering access control, payout math, edge cases, EVE event types, input validation, and Table indexing.
 
 ```bash
 cd contracts/augury && sui move test

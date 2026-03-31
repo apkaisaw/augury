@@ -407,6 +407,33 @@ public fun yes_odds_bps(market: &Market): u64 {
     else { market.yes_pool.value() * BPS_DENOMINATOR / total }
 }
 
+// === Package-internal resolution (used by resolver_registry) ===
+
+/// Resolve a market without AdminCap. Only callable from within this package
+/// (e.g. by resolver_registry after multi-oracle consensus).
+public(package) fun resolve_internal(
+    market: &mut Market,
+    observed_count: u64,
+    clock: &Clock,
+) {
+    assert!(market.status == STATUS_OPEN, EMarketAlreadyResolved);
+    assert!(clock.timestamp_ms() >= market.deadline_ms, EDeadlineNotReached);
+
+    market.resolved_count = observed_count;
+    let outcome = if (observed_count >= market.threshold) {
+        STATUS_RESOLVED_YES
+    } else {
+        STATUS_RESOLVED_NO
+    };
+    market.status = outcome;
+
+    event::emit(MarketResolved {
+        market_id: object::id(market),
+        outcome,
+        observed_count,
+    });
+}
+
 // === Public constants for SDK/frontend usage ===
 public fun event_killmail(): u8 { EVENT_KILLMAIL }
 public fun event_jump(): u8 { EVENT_JUMP }
