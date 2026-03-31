@@ -100,12 +100,12 @@ Each market stores `event_type`, `target_system_id`, and `threshold`. The off-ch
 
 | | Value |
 |-|-------|
-| **Package ID** | `0xb4d66c40073c8ad61df419386645711d5ae2051f96f2e4a0ddaffbc38580b933` |
-| **Treasury** | `0x2d82084d3909e01f03d91df30b1062a82295013586ffdbc9f6817810a40bf72a` |
-| **MarketRegistry** | `0xf53b284bc6e4b4ec7934feeb380dac85130549e4efb842f541ebe2500063e666` |
-| **AdminCap** | `0x8d675f94c0b2e810d7af53b68b49ac68be0e51b7ffd5d8caa4d3780e7f2e9781` |
+| **Package ID** | `0x65ace09e971654cf69c60bbbe47171df92eb7f6351c5b0d5fd989e3723e16116` |
+| **Treasury** | `0x8fade1ccdeb5c1164ca10d70b3ab491e8aff0bcb3ee064310e2203b4957e6403` |
+| **MarketRegistry** | `0x022abb8fd84902368d0d5307f0fd3ad8f618b96701c8d372e4e6c4d0d42e6afe` |
+| **AdminCap** | `0x60bf3637ad36e1342393252ba56a8fa38cc2f97a7c85a7a18de1526ee4761b76` |
 
-Transaction: `3Q5wuWAHngEETMrFYq9Q5KXPik51EXC64zVfENs4Njoo`
+Transaction: `4E817wXCdjLbhv95YedZaiEk7vvaJfx8zpgT1mkTZw6o`
 
 ## Quick Start
 
@@ -113,11 +113,11 @@ Create a market (KILLMAIL type, system 42, threshold 20, deadline 2h from now):
 
 ```bash
 sui client call \
-  --package 0xb4d66c40073c8ad61df419386645711d5ae2051f96f2e4a0ddaffbc38580b933 \
+  --package 0x65ace09e971654cf69c60bbbe47171df92eb7f6351c5b0d5fd989e3723e16116 \
   --module augury \
   --function create_market \
   --args \
-    0xf53b284bc6e4b4ec7934feeb380dac85130549e4efb842f541ebe2500063e666 \
+    0x022abb8fd84902368d0d5307f0fd3ad8f618b96701c8d372e4e6c4d0d42e6afe \
     "Will System 42 see 20+ kills?" \
     1 \
     42 \
@@ -131,7 +131,7 @@ Place a YES bet (1 SUI):
 
 ```bash
 sui client call \
-  --package 0xb4d66c40073c8ad61df419386645711d5ae2051f96f2e4a0ddaffbc38580b933 \
+  --package 0x65ace09e971654cf69c60bbbe47171df92eb7f6351c5b0d5fd989e3723e16116 \
   --module augury \
   --function place_bet \
   --args <MARKET_ID> 1 <COIN_ID> 0x6 \
@@ -142,11 +142,11 @@ Resolve a market (AdminCap holder, after deadline):
 
 ```bash
 sui client call \
-  --package 0xb4d66c40073c8ad61df419386645711d5ae2051f96f2e4a0ddaffbc38580b933 \
+  --package 0x65ace09e971654cf69c60bbbe47171df92eb7f6351c5b0d5fd989e3723e16116 \
   --module augury \
   --function resolve \
   --args \
-    0x8d675f94c0b2e810d7af53b68b49ac68be0e51b7ffd5d8caa4d3780e7f2e9781 \
+    0x60bf3637ad36e1342393252ba56a8fa38cc2f97a7c85a7a18de1526ee4761b76 \
     <MARKET_ID> \
     25 \
     0x6 \

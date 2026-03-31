@@ -52,8 +52,8 @@ const STATUS_RESOLVED_NO: u8 = 2;
 /// 2% fee (200 basis points)
 const FEE_BPS: u64 = 200;
 const BPS_DENOMINATOR: u64 = 10000;
-/// Minimum deadline: 1 hour from now
-const MIN_DEADLINE_DURATION_MS: u64 = 3_600_000;
+/// Minimum deadline: 5 minutes from now
+const MIN_DEADLINE_DURATION_MS: u64 = 300_000;
 /// Maximum question length in bytes
 const MAX_QUESTION_LENGTH: u64 = 256;
 
