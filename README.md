@@ -1,86 +1,61 @@
 # Augury
 
-A trustless prediction market for EVE Frontier. On-chain game events are the oracle.
+Collective intelligence for EVE Frontier. A prediction market where on-chain game events are the oracle.
 
-## Problem
+## Why This Matters
 
-EVE Frontier generates thousands of verifiable on-chain events every day -- kills, gate jumps, item destruction -- but there is no mechanism for players to aggregate collective intelligence around these events. Traditional prediction markets require external oracles to determine outcomes, introducing trust assumptions and single points of failure.
+When 1,000 players simultaneously bet on "Will Null-sec System X see a major battle this week?", the resulting odds become the most accurate early warning system in EVE Frontier. Augury doesn't predict the future -- it aggregates what thousands of players collectively know into a single, real-time price signal.
 
-## Solution
+Every war, every trade route disruption, every resource crisis -- players see the signs before they happen. Augury turns that scattered knowledge into verifiable, on-chain intelligence that anyone can read.
 
-Augury turns EVE Frontier's chain data into a trustless oracle. Players stake SUI on predictions about real in-game outcomes ("Will System X see >20 kills this week?"). Settlement is determined entirely by on-chain event counts that anyone can independently verify via GraphQL. No external oracle, no dispute resolution, no trust required -- the chain data IS the truth.
+## The Insight
+
+Traditional prediction markets need external oracles -- someone trusted to say "this happened." That trust assumption is the central weakness of every prediction market ever built.
+
+EVE Frontier doesn't have this problem. Every kill, every gate jump, every item destroyed is already an immutable on-chain event. The chain data IS the oracle. No Chainlink, no dispute resolution, no trust required. Settlement is a simple count: "Did System X see 20+ kills? Query the chain. The answer is right there."
+
+This is the only project in 68 hackathon submissions that exploits this insight.
 
 ## How It Works
 
 ```
-1. Creator publishes a market (question + EVE event type + target system + threshold + deadline)
+1. Creator publishes a market
+   "Will System 30003489 see >20 kills this week?"
+   (EVE event type + target system + threshold + deadline)
+
 2. Players stake SUI on YES or NO
+   Odds shift with each bet -- the market price IS the prediction
+
 3. Deadline passes
-4. Resolver indexes on-chain EVE events, submits observed count
-5. Contract auto-settles: observed_count >= threshold -> YES wins, otherwise NO wins
+
+4. Indexer counts matching on-chain EVE events via GraphQL
+   Anyone can run the same query to verify independently
+
+5. Contract auto-settles: observed_count >= threshold -> YES wins
+
 6. Winners claim proportional payout (minus 2% protocol fee)
 ```
 
-## Technical Architecture
+## Composability: Markets as Infrastructure
 
-### Contract Objects
+Augury's resolved markets are readable on-chain by any other contract. This makes prediction market outcomes a building block for the EVE Frontier ecosystem:
 
-| Object | Type | Description |
-|--------|------|-------------|
-| `Market` | Shared | Prediction market with YES/NO pools, deadline, threshold, event type |
-| `Position` | Owned | Player's stake in a market (side, amount, claimed status) |
-| `MarketRegistry` | Shared | Table-indexed registry of all markets |
-| `Treasury` | Shared | Protocol fee collection |
-| `AdminCap` | Owned | Authorizes the off-chain resolver to submit outcomes |
+- **Insurance pricing** -- A market showing 80% odds of conflict in a system is a real-time risk signal. Insurance protocols can read `market_status` and `yes_odds_bps` to dynamically price coverage for ships operating in that system.
+- **Smart Gate strategies** -- Gate controllers can query active markets to adjust toll pricing or access policies. High predicted traffic (JumpEvent markets) means higher tolls. High predicted combat (KillMail markets) means restricted access.
+- **Reputation input** -- A player's prediction track record (win rate across positions) is a measurable signal of information quality. Reputation systems can index `WinningsClaimed` events to score player intelligence.
+- **DAO governance** -- Tribes can create markets to gauge member sentiment before committing to operations. "Should we attack System X?" becomes a market where members put stake behind their conviction.
 
-### Functions
+All view functions (`market_status`, `yes_odds_bps`, `market_resolved_count`, `market_threshold`) are public and composable. Any contract can read Augury's markets in the same transaction.
 
-| Function | Access | Description |
-|----------|--------|-------------|
-| `create_market` | Anyone | Create a market for a specific EVE event type |
-| `place_bet` | Anyone (before deadline) | Stake SUI on YES or NO |
-| `resolve` | AdminCap holder (after deadline) | Submit observed event count; outcome auto-determined |
-| `claim` | Position owner (winning side) | Withdraw proportional share of the pool |
+## Oracle Decentralization Roadmap
 
-### Events
+The current resolver architecture is intentionally simple for v1. Here is the path to full decentralization:
 
-| Event | Emitted When |
-|-------|-------------|
-| `MarketCreated` | New market published |
-| `BetPlaced` | Player stakes on a market |
-| `MarketResolved` | Outcome determined from observed event count |
-| `WinningsClaimed` | Winner withdraws payout |
+**v1 (current):** Single AdminCap holder submits `observed_count`. Anyone can independently query the same EVE events via GraphQL to audit the result. Trust assumption: the resolver is honest.
 
-### Settlement Architecture
+**v2 (planned):** Multi-oracle voting. Multiple resolvers register via a `ResolverRegistry`. Resolution requires M-of-N agreement on `observed_count`. Any registered resolver can submit, and the contract accepts the majority value. Trust assumption: majority of resolvers are honest.
 
-```
-EVE Frontier chain (KillmailCreatedEvent, JumpEvent, ItemDestroyedEvent)
-    |
-    v
-Off-chain indexer (GraphQL query: count events matching market criteria)
-    |
-    v
-AdminCap holder calls resolve(observed_count)
-    |
-    v
-Contract: observed_count >= threshold ? YES : NO
-    |
-    v
-Winners call claim() -> proportional payout from combined pool
-```
-
-This is the same architecture pattern used by Aegis Stack (S-tier in the first hackathon wave): off-chain indexing of on-chain facts, submitted as verifiable oracle data. The difference is that Augury uses this pattern for prediction markets rather than reputation scoring.
-
-## Sui Features Used
-
-| Feature | Usage |
-|---------|-------|
-| **Clock** | Deadline enforcement for betting and resolution |
-| **Events** | 4 event types for frontend indexing and off-chain tracking |
-| **Table** | Market registry with on-chain enumeration by index |
-| **Capabilities** | AdminCap gates resolution to authorized resolver |
-| **Coin / Balance** | SUI staking pools, proportional payout math, fee extraction |
-| **Shared Objects** | Market, Treasury, Registry -- concurrent multi-player access |
+**v3 (target):** Permissionless resolution. Anyone can call `resolve()` by providing a Sui-signed attestation of the event count. The contract verifies the attestation against known EVE world contract event signatures. Trust assumption: the chain itself.
 
 ## EVE Frontier Integration
 
@@ -94,7 +69,55 @@ This is the same architecture pattern used by Aegis Stack (S-tier in the first h
 
 ### Oracle Loop
 
-Each market stores `event_type`, `target_system_id`, and `threshold`. The off-chain resolver queries the corresponding EVE events via GraphQL, counts matches within the market's time window, and submits the observed count. The contract then compares against the threshold to determine the outcome. Anyone can run the same query to verify.
+Each market stores `event_type`, `target_system_id`, and `threshold`. The off-chain indexer queries corresponding EVE events via Sui GraphQL with cursor-based pagination, counts matches within the time window, and submits the observed count. The contract compares against the threshold to determine the outcome. Anyone can run the same query to verify -- the data is public, the logic is deterministic, the result is inevitable.
+
+## Technical Architecture
+
+### Contract (430 lines Move, 29 tests)
+
+| Object | Type | Description |
+|--------|------|-------------|
+| `Market` | Shared | Prediction market with YES/NO pools, deadline, threshold, event type |
+| `Position` | Owned | Player's stake in a market (side, amount, claimed status) |
+| `MarketRegistry` | Shared | Table-indexed registry of all markets |
+| `Treasury` | Shared | Protocol fee collection |
+| `AdminCap` | Owned | Authorizes the off-chain resolver to submit outcomes |
+
+| Function | Access | Description |
+|----------|--------|-------------|
+| `create_market` | Anyone | Create a market for a specific EVE event type |
+| `place_bet` | Anyone (before deadline) | Stake SUI on YES or NO |
+| `resolve` | AdminCap holder (after deadline) | Submit observed event count; outcome auto-determined |
+| `claim` | Position owner (winning side) | Withdraw proportional share of the pool |
+
+### Settlement Flow
+
+```
+EVE Frontier chain (KillmailCreatedEvent, JumpEvent, ItemDestroyedEvent)
+    |
+    v
+Off-chain indexer (Sui GraphQL: cursor-paginated event query)
+    |
+    v
+AdminCap holder calls resolve(observed_count)
+    |
+    v
+Contract: observed_count >= threshold ? YES : NO
+    |
+    v
+Winners call claim() -> proportional payout from combined pool
+```
+
+### Sui Features
+
+| Feature | Usage |
+|---------|-------|
+| **Clock** | Deadline enforcement for betting and resolution |
+| **Events** | 4 event types for frontend indexing and off-chain tracking |
+| **Table** | Market registry with on-chain enumeration by index |
+| **Capabilities** | AdminCap gates resolution to authorized resolver |
+| **Coin / Balance** | SUI staking pools, proportional payout math (u128), fee extraction |
+| **Shared Objects** | Market, Treasury, Registry -- concurrent multi-player access |
 
 ## Deployed on Testnet
 
@@ -107,9 +130,17 @@ Each market stores `event_type`, `target_system_id`, and `threshold`. The off-ch
 
 Transaction: `4E817wXCdjLbhv95YedZaiEk7vvaJfx8zpgT1mkTZw6o`
 
+### End-to-End Test
+
+Successfully tested the full oracle loop on testnet:
+1. Created market: "Will there be any gate jumps in the next 6 minutes?" (JumpEvent, threshold=1)
+2. Placed YES bet
+3. Indexer queried Sui GraphQL, counted **63 JumpEvents**
+4. Auto-resolved as YES (63 >= 1), tx: `GQRmpMekRbUdj4pKpCYkEiQHkenSusiE3D8jiHXYm3fY`
+
 ## Quick Start
 
-Create a market (KILLMAIL type, system 42, threshold 20, deadline 2h from now):
+Create a market (KILLMAIL type, system 42, threshold 20):
 
 ```bash
 sui client call \
@@ -127,7 +158,7 @@ sui client call \
   --gas-budget 10000000
 ```
 
-Place a YES bet (1 SUI):
+Place a YES bet:
 
 ```bash
 sui client call \
@@ -135,21 +166,6 @@ sui client call \
   --module augury \
   --function place_bet \
   --args <MARKET_ID> 1 <COIN_ID> 0x6 \
-  --gas-budget 10000000
-```
-
-Resolve a market (AdminCap holder, after deadline):
-
-```bash
-sui client call \
-  --package 0x65ace09e971654cf69c60bbbe47171df92eb7f6351c5b0d5fd989e3723e16116 \
-  --module augury \
-  --function resolve \
-  --args \
-    0x60bf3637ad36e1342393252ba56a8fa38cc2f97a7c85a7a18de1526ee4761b76 \
-    <MARKET_ID> \
-    25 \
-    0x6 \
   --gas-budget 10000000
 ```
 
@@ -162,28 +178,13 @@ The `indexer/` directory contains a TypeScript service that closes the oracle lo
 3. Counts events matching each market's criteria (event type + target system)
 4. Submits `resolve(observed_count)` transactions automatically
 
-### Setup
-
 ```bash
 cd indexer
 npm install
-cp .env.example .env
-# Edit .env with your ADMIN_PRIVATE_KEY and WORLD_PACKAGE_ID
+cp .env.example .env   # Edit with your ADMIN_PRIVATE_KEY
+npx tsx resolve.ts      # Single pass
+npx tsx watch.ts        # Continuous (every 30s)
 ```
-
-### Run
-
-```bash
-# Single pass: scan and resolve all eligible markets
-npx tsx resolve.ts
-
-# Continuous: poll every 30 seconds
-npx tsx watch.ts
-```
-
-### Architecture
-
-The indexer follows the same pattern as Aegis Stack (S-tier): cursor-based incremental polling of Sui GraphQL events, with stateless resolution transactions. It uses the standard `events(filter: { type: $eventType })` query with `first/after` pagination.
 
 ## Tests
 
@@ -195,9 +196,9 @@ cd contracts/augury && sui move test
 
 ## Category
 
-- **Creative** -- "On-chain game events as trustless oracle" is a novel architectural insight, not a port of an existing concept
-- **Technical Implementation** -- Off-chain indexing to on-chain settlement, the proven S-tier pattern
-- **Utility** -- Prediction markets are information aggregation mechanisms; odds become the most accurate early warning system for wars and economic shifts across the server
+- **Creative** -- The only prediction market in 68 submissions. "On-chain game events as trustless oracle" is a genuinely novel insight.
+- **Technical Implementation** -- Off-chain indexing to on-chain settlement with cursor-based GraphQL pagination, the proven S-tier architecture pattern.
+- **Utility** -- Prediction markets are information aggregation mechanisms. When players bet on EVE outcomes, the odds become the server's most accurate early warning system for wars, economic shifts, and strategic opportunities.
 
 ## License
 

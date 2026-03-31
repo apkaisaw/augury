@@ -39,13 +39,13 @@ interface FetchResult {
 export async function fetchEvents(
   eventType: string,
   afterCursor: string | null = null,
-  maxPages = 10,
   pageSize = 50,
 ): Promise<FetchResult> {
   const allEvents: EventNode[] = [];
   let cursor = afterCursor;
+  let hasMore = true;
 
-  for (let page = 0; page < maxPages; page++) {
+  while (hasMore) {
     const variables: Record<string, unknown> = {
       eventType,
       first: pageSize,
@@ -85,7 +85,7 @@ export async function fetchEvents(
 
       const pageInfo = eventsData?.pageInfo;
       cursor = pageInfo?.endCursor ?? null;
-      if (!pageInfo?.hasNextPage) break;
+      hasMore = pageInfo?.hasNextPage ?? false;
     } catch (err) {
       console.error("GraphQL fetch error:", err);
       break;

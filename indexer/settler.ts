@@ -25,8 +25,6 @@ export async function countMatchingEvents(
   const { events, endCursor } = await fetchEvents(
     eventTypeStr,
     afterCursor,
-    50, // max pages
-    50, // page size
   );
 
   let count = 0;
