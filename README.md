@@ -153,6 +153,38 @@ sui client call \
   --gas-budget 10000000
 ```
 
+## Event Indexer / Auto-Resolver
+
+The `indexer/` directory contains a TypeScript service that closes the oracle loop:
+
+1. Queries EVE Frontier events (KillmailCreatedEvent, JumpEvent, ItemDestroyedEvent) from Sui GraphQL
+2. Reads all open markets past their deadline
+3. Counts events matching each market's criteria (event type + target system)
+4. Submits `resolve(observed_count)` transactions automatically
+
+### Setup
+
+```bash
+cd indexer
+npm install
+cp .env.example .env
+# Edit .env with your ADMIN_PRIVATE_KEY and WORLD_PACKAGE_ID
+```
+
+### Run
+
+```bash
+# Single pass: scan and resolve all eligible markets
+npx tsx resolve.ts
+
+# Continuous: poll every 30 seconds
+npx tsx watch.ts
+```
+
+### Architecture
+
+The indexer follows the same pattern as Aegis Stack (S-tier): cursor-based incremental polling of Sui GraphQL events, with stateless resolution transactions. It uses the standard `events(filter: { type: $eventType })` query with `first/after` pagination.
+
 ## Tests
 
 29 unit tests covering access control, payout math, edge cases, EVE event types, input validation, and Table indexing.
